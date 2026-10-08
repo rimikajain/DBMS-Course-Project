@@ -1,0 +1,170 @@
+// This is your Prisma schema file
+// Configured for instant preview & zero-friction execution with local SQLite
+// See schema.mysql.prisma for the production MySQL schema.
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Building {
+  id             Int      @id @default(autoincrement())
+  buildingName   String   @unique
+  campusLocation String
+  totalFloors    Int
+  rooms          Room[]
+}
+
+model Room {
+  id          Int       @id @default(autoincrement())
+  buildingId  Int
+  roomNumber  String
+  floorLevel  Int
+  building    Building  @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  assets      Asset[]
+  requests    Request[]
+
+  @@unique([buildingId, roomNumber])
+}
+
+model Category {
+  id           Int      @id @default(autoincrement())
+  categoryName String   @unique
+  slaHours     Int
+  assets       Asset[]
+}
+
+model Priority {
+  id                Int       @id @default(autoincrement())
+  levelName         String    @unique
+  responseTimeHours Int
+  requests          Request[]
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  fullName    String
+  email       String       @unique
+  phoneNumber String
+  role        String // 'Student' | 'Faculty' | 'Staff' | 'Facility Manager' | 'Technician'
+  department  String
+  createdDate DateTime     @default(now())
+  technician  Technician?
+  requests    Request[]
+}
+
+model Technician {
+  id                 Int          @id @default(autoincrement())
+  userId             Int          @unique
+  specialization     String // 'Electrical' | 'HVAC & Air Conditioning' | 'Plumbing' | 'Carpentry & Furniture'
+  availabilityStatus String       @default("Available") // 'Available' | 'Busy' | 'On Leave'
+  user               User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assignments        Assignment[]
+}
+
+model Asset {
+  id           Int       @id @default(autoincrement())
+  roomId       Int
+  categoryId   Int
+  assetName    String
+  serialNumber String    @unique
+  status       String    @default("Operational") // 'Operational' | 'Faulty' | 'Under Maintenance' | 'Decommissioned'
+  purchaseDate DateTime
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  requests     Request[]
+}
+
+model Request {
+  id            Int             @id @default(autoincrement())
+  requestCode   String          @unique // e.g. REQ-2026-0001
+  userId        Int
+  assetId       Int?
+  roomId        Int
+  priorityId    Int
+  description   String
+  currentStatus String          @default("Open") // 'Open' | 'Assigned' | 'In Progress' | 'Completed' | 'Cancelled'
+  dateSubmitted DateTime        @default(now())
+  dateCompleted DateTime?
+  user          User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  asset         Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  room          Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  priority      Priority        @relation(fields: [priorityId], references: [id], onDelete: Restrict)
+  assignments   Assignment[]
+  statusHistory StatusHistory[]
+  costs         Cost[]
+  feedback      Feedback?
+}
+
+model StatusHistory {
+  id             Int      @id @default(autoincrement())
+  requestId      Int
+  previousStatus String
+  newStatus      String
+  changedDate    DateTime @default(now())
+  remarks        String?
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id           Int        @id @default(autoincrement())
+  requestId    Int
+  techId       Int
+  assignedDate DateTime   @default(now())
+  status       String     @default("Assigned") // 'Assigned' | 'In Progress' | 'Completed' | 'Reassigned'
+  request      Request    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  technician   Technician @relation(fields: [techId], references: [id], onDelete: Restrict)
+  workLogs     WorkLog[]
+}
+
+model WorkLog {
+  id               Int               @id @default(autoincrement())
+  assignmentId     Int
+  logDate          DateTime          @default(now())
+  hoursSpent       Float // Validated: > 0 and <= 24
+  description      String
+  assignment       Assignment        @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  requestMaterials RequestMaterial[]
+}
+
+model Material {
+  id               Int               @id @default(autoincrement())
+  materialName     String            @unique
+  unitCost         Float // Non-negative
+  quantityInStock  Int // Non-negative
+  reorderLevel     Int               @default(5)
+  requestMaterials RequestMaterial[]
+}
+
+model RequestMaterial {
+  id           Int      @id @default(autoincrement())
+  logId        Int
+  materialId   Int
+  quantityUsed Int // Positive
+  workLog      WorkLog  @relation(fields: [logId], references: [id], onDelete: Cascade)
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@unique([logId, materialId])
+}
+
+model Cost {
+  id           Int      @id @default(autoincrement())
+  requestId    Int
+  costType     String // 'Material' | 'Labor' | 'Contractor' | 'Other'
+  amount       Float // Non-negative
+  incurredDate DateTime @default(now())
+  request      Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model Feedback {
+  id             Int      @id @default(autoincrement())
+  requestId      Int      @unique
+  rating         Int // 1 to 5 stars
+  comments       String?
+  submissionDate DateTime @default(now())
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}

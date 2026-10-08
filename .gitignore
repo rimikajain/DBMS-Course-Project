@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Next.js build outputs
+.next/
+*/.next/
+*/*/.next/
+out/
+build/
+
+# Cache & logs
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment local overrides (preserve base .env)
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db

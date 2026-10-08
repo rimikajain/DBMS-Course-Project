@@ -1,0 +1,206 @@
+// ==============================================================================
+// MYSQL PRODUCTION PRISMA SCHEMA
+// Campus Facility Maintenance Request Management System
+// Project 41 | Rimika Jain (25WU0101111) | DBMS PBL
+// ==============================================================================
+// To use MySQL:
+// 1. Set DATABASE_URL in .env to your MySQL connection string, e.g.:
+//    DATABASE_URL="mysql://root:password@localhost:3306/campus_facility"
+// 2. Replace schema.prisma with this file, or run:
+//    npx prisma db push --schema=prisma/schema.mysql.prisma
+// ==============================================================================
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Building {
+  id             Int      @id @default(autoincrement())
+  buildingName   String   @unique @db.VarChar(100)
+  campusLocation String   @db.VarChar(100)
+  totalFloors    Int
+  rooms          Room[]
+
+  @@map("Buildings")
+}
+
+model Room {
+  id          Int       @id @default(autoincrement())
+  buildingId  Int
+  roomNumber  String    @db.VarChar(20)
+  floorLevel  Int
+  building    Building  @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  assets      Asset[]
+  requests    Request[]
+
+  @@unique([buildingId, roomNumber])
+  @@map("Rooms")
+}
+
+model Category {
+  id           Int      @id @default(autoincrement())
+  categoryName String   @unique @db.VarChar(50)
+  slaHours     Int
+  assets       Asset[]
+
+  @@map("Categories")
+}
+
+model Priority {
+  id                Int       @id @default(autoincrement())
+  levelName         String    @unique @db.VarChar(20)
+  responseTimeHours Int
+  requests          Request[]
+
+  @@map("Priority")
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  fullName    String       @db.VarChar(100)
+  email       String       @unique @db.VarChar(120)
+  phoneNumber String       @db.VarChar(20)
+  role        String       @db.VarChar(30)
+  department  String       @db.VarChar(80)
+  createdDate DateTime     @default(now())
+  technician  Technician?
+  requests    Request[]
+
+  @@map("Users")
+}
+
+model Technician {
+  id                 Int          @id @default(autoincrement())
+  userId             Int          @unique
+  specialization     String       @db.VarChar(50)
+  availabilityStatus String       @default("Available") @db.VarChar(20)
+  user               User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assignments        Assignment[]
+
+  @@map("Technicians")
+}
+
+model Asset {
+  id           Int       @id @default(autoincrement())
+  roomId       Int
+  categoryId   Int
+  assetName    String    @db.VarChar(100)
+  serialNumber String    @unique @db.VarChar(50)
+  status       String    @default("Operational") @db.VarChar(20)
+  purchaseDate DateTime  @db.Date
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  requests     Request[]
+
+  @@map("Assets")
+}
+
+model Request {
+  id            Int             @id @default(autoincrement())
+  requestCode   String          @unique @db.VarChar(20)
+  userId        Int
+  assetId       Int?
+  roomId        Int
+  priorityId    Int
+  description   String          @db.Text
+  currentStatus String          @default("Open") @db.VarChar(20)
+  dateSubmitted DateTime        @default(now())
+  dateCompleted DateTime?
+  user          User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  asset         Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  room          Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  priority      Priority        @relation(fields: [priorityId], references: [id], onDelete: Restrict)
+  assignments   Assignment[]
+  statusHistory StatusHistory[]
+  costs         Cost[]
+  feedback      Feedback?
+
+  @@map("Requests")
+}
+
+model StatusHistory {
+  id             Int      @id @default(autoincrement())
+  requestId      Int
+  previousStatus String   @db.VarChar(20)
+  newStatus      String   @db.VarChar(20)
+  changedDate    DateTime @default(now())
+  remarks        String?  @db.Text
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("Status_History")
+}
+
+model Assignment {
+  id           Int        @id @default(autoincrement())
+  requestId    Int
+  techId       Int
+  assignedDate DateTime   @default(now())
+  status       String     @default("Assigned") @db.VarChar(20)
+  request      Request    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  technician   Technician @relation(fields: [techId], references: [id], onDelete: Restrict)
+  workLogs     WorkLog[]
+
+  @@map("Assignments")
+}
+
+model WorkLog {
+  id               Int               @id @default(autoincrement())
+  assignmentId     Int
+  logDate          DateTime          @default(now())
+  hoursSpent       Float
+  description      String            @db.Text
+  assignment       Assignment        @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  requestMaterials RequestMaterial[]
+
+  @@map("Work_Logs")
+}
+
+model Material {
+  id               Int               @id @default(autoincrement())
+  materialName     String            @unique @db.VarChar(100)
+  unitCost         Float
+  quantityInStock  Int
+  reorderLevel     Int               @default(5)
+  requestMaterials RequestMaterial[]
+
+  @@map("Materials")
+}
+
+model RequestMaterial {
+  id           Int      @id @default(autoincrement())
+  logId        Int
+  materialId   Int
+  quantityUsed Int
+  workLog      WorkLog  @relation(fields: [logId], references: [id], onDelete: Cascade)
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@unique([logId, materialId])
+  @@map("Request_Materials")
+}
+
+model Cost {
+  id           Int      @id @default(autoincrement())
+  requestId    Int
+  costType     String   @db.VarChar(30)
+  amount       Float
+  incurredDate DateTime @db.Date
+  request      Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("Costs")
+}
+
+model Feedback {
+  id             Int      @id @default(autoincrement())
+  requestId      Int      @unique
+  rating         Int
+  comments       String?  @db.Text
+  submissionDate DateTime @default(now())
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("Feedback")
+}
