@@ -28,7 +28,7 @@ export async function GET() {
           include: {
             user: true,
             assignments: {
-              where: { status: "In Progress" },
+              where: { status: { in: ["Assigned", "In Progress"] } },
             },
           },
           orderBy: { user: { fullName: "asc" } },

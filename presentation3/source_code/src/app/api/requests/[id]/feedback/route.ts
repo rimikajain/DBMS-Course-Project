@@ -62,3 +62,66 @@ export async function POST(
     );
   }
 }
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const requestId = parseInt(params.id, 10);
+    const body = await req.json();
+    const { rating, comments } = body;
+
+    const r = parseInt(rating, 10);
+    if (isNaN(r) || r < 1 || r > 5) {
+      return NextResponse.json(
+        { success: false, error: "Rating must be an integer between 1 and 5." },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.feedback.update({
+      where: { requestId },
+      data: {
+        rating: r,
+        comments: comments?.trim() || null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Feedback updated successfully.",
+      data: updated,
+    });
+  } catch (error: any) {
+    console.error("Error updating feedback:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to update feedback." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const requestId = parseInt(params.id, 10);
+    await prisma.feedback.deleteMany({
+      where: { requestId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Feedback deleted successfully.",
+    });
+  } catch (error: any) {
+    console.error("Error deleting feedback:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to delete feedback." },
+      { status: 500 }
+    );
+  }
+}
+

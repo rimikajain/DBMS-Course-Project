@@ -24,6 +24,9 @@ import {
   Coins,
   MapPin,
   ExternalLink,
+  Pencil,
+  Trash2,
+  Plus,
 } from "lucide-react";
 
 export default function FacilityManagementApp() {
@@ -67,6 +70,33 @@ export default function FacilityManagementApp() {
   // Form states for Feedback
   const [fbRating, setFbRating] = useState(5);
   const [fbComments, setFbComments] = useState("");
+
+  // Edit Request State
+  const [editRequestModalReq, setEditRequestModalReq] = useState<any>(null);
+  const [editReqStatus, setEditReqStatus] = useState("");
+  const [editReqPriorityId, setEditReqPriorityId] = useState("");
+  const [editReqRoomId, setEditReqRoomId] = useState("");
+  const [editReqAssetId, setEditReqAssetId] = useState("");
+  const [editReqUserId, setEditReqUserId] = useState("");
+  const [editReqDescription, setEditReqDescription] = useState("");
+
+  // Technician Modals State
+  const [addTechModalOpen, setAddTechModalOpen] = useState(false);
+  const [techFullName, setTechFullName] = useState("");
+  const [techEmail, setTechEmail] = useState("");
+  const [techPhone, setTechPhone] = useState("");
+  const [techSpec, setTechSpec] = useState("Electrical");
+  const [techStatus, setTechStatus] = useState("Available");
+  const [techDept, setTechDept] = useState("Campus Facilities Operations");
+  const [editTechModalTech, setEditTechModalTech] = useState<any>(null);
+
+  // Material Modals State
+  const [addMaterialModalOpen, setAddMaterialModalOpen] = useState(false);
+  const [matName, setMatName] = useState("");
+  const [matUnitCost, setMatUnitCost] = useState("50.00");
+  const [matStock, setMatStock] = useState("20");
+  const [matReorder, setMatReorder] = useState("5");
+  const [editMaterialModalMat, setEditMaterialModalMat] = useState<any>(null);
 
   // Alerts
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -250,6 +280,303 @@ export default function FacilityManagementApp() {
         fetchData();
       } else {
         showToast(json.error || "Failed to submit feedback", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open Edit Request Modal
+  const openEditRequestModal = (r: any) => {
+    setEditRequestModalReq(r);
+    setEditReqStatus(r.currentStatus);
+    setEditReqPriorityId(String(r.priorityId));
+    setEditReqRoomId(String(r.roomId));
+    setEditReqAssetId(r.assetId ? String(r.assetId) : "");
+    setEditReqUserId(String(r.userId));
+    setEditReqDescription(r.description);
+  };
+
+  // Submit Edit Request (PUT)
+  const handleEditRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRequestModalReq) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/requests/${editRequestModalReq.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: editReqDescription,
+          currentStatus: editReqStatus,
+          priorityId: editReqPriorityId,
+          roomId: editReqRoomId,
+          assetId: editReqAssetId || null,
+          userId: editReqUserId,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Request updated successfully in database!");
+        setEditRequestModalReq(null);
+        if (selectedRequest && selectedRequest.id === editRequestModalReq.id) {
+          setSelectedRequest(json.data);
+        }
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to update request", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete Request (DELETE)
+  const handleDeleteRequest = async (id: number, code: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete ticket ${code}? This will remove all work logs, costs, and audit history from the database.`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/requests/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || "Request deleted successfully from database!");
+        if (selectedRequest && selectedRequest.id === id) {
+          setSelectedRequest(null);
+        }
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to delete request", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Add Technician (POST)
+  const handleAddTechnicianSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!techFullName.trim() || !techEmail.trim()) {
+      showToast("Full name and email are required", "error");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/technicians", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: techFullName,
+          email: techEmail,
+          phoneNumber: techPhone,
+          specialization: techSpec,
+          availabilityStatus: techStatus,
+          department: techDept,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Technician registered successfully in database!");
+        setAddTechModalOpen(false);
+        setTechFullName("");
+        setTechEmail("");
+        setTechPhone("");
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to register technician", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open Edit Technician Modal
+  const openEditTechnicianModal = (t: any) => {
+    setEditTechModalTech(t);
+    setTechFullName(t.user.fullName);
+    setTechEmail(t.user.email);
+    setTechPhone(t.user.phoneNumber || "");
+    setTechSpec(t.specialization);
+    setTechStatus(t.availabilityStatus);
+  };
+
+  // Submit Edit Technician (PUT)
+  const handleEditTechnicianSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTechModalTech) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/technicians/${editTechModalTech.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: techFullName,
+          email: techEmail,
+          phoneNumber: techPhone,
+          specialization: techSpec,
+          availabilityStatus: techStatus,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Technician updated successfully in database!");
+        setEditTechModalTech(null);
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to update technician", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete Technician (DELETE)
+  const handleDeleteTechnician = async (id: number, name: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete technician "${name}" from the database?`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/technicians/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || "Technician deleted successfully!");
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to delete technician", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Add Material (POST)
+  const handleAddMaterialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!matName.trim()) {
+      showToast("Material name is required", "error");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materialName: matName,
+          unitCost: matUnitCost,
+          quantityInStock: matStock,
+          reorderLevel: matReorder,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Spare part added to inventory database!");
+        setAddMaterialModalOpen(false);
+        setMatName("");
+        setMatUnitCost("50.00");
+        setMatStock("20");
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to add material", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open Edit Material Modal
+  const openEditMaterialModal = (m: any) => {
+    setEditMaterialModalMat(m);
+    setMatName(m.materialName);
+    setMatUnitCost(String(m.unitCost));
+    setMatStock(String(m.quantityInStock));
+    setMatReorder(String(m.reorderLevel));
+  };
+
+  // Submit Edit Material (PUT)
+  const handleEditMaterialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editMaterialModalMat) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/materials/${editMaterialModalMat.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materialName: matName,
+          unitCost: matUnitCost,
+          quantityInStock: matStock,
+          reorderLevel: matReorder,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Inventory material updated in database!");
+        setEditMaterialModalMat(null);
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to update material", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete Material (DELETE)
+  const handleDeleteMaterial = async (id: number, name: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${name}" from the inventory database?`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/materials/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || "Material deleted from database!");
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to delete material", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete Feedback (DELETE)
+  const handleDeleteFeedback = async (requestId: number) => {
+    if (!window.confirm("Are you sure you want to delete this rating and review?")) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/requests/${requestId}/feedback`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Feedback removed from database!");
+        if (selectedRequest && selectedRequest.id === requestId) {
+          setSelectedRequest({ ...selectedRequest, feedback: null });
+        }
+        fetchData();
+      } else {
+        showToast(json.error || "Failed to remove feedback", "error");
       }
     } catch (err: any) {
       showToast(err.message, "error");
@@ -892,6 +1219,22 @@ export default function FacilityManagementApp() {
                                 >
                                   View
                                 </button>
+                                <button
+                                  onClick={() => openEditRequestModal(r)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: "4px 8px", fontSize: "11.5px" }}
+                                  title="Edit Ticket"
+                                >
+                                  <Pencil size={11} /> Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRequest(r.id, r.requestCode)}
+                                  className="btn btn-danger"
+                                  style={{ padding: "4px 8px", fontSize: "11.5px" }}
+                                  title="Delete Ticket"
+                                >
+                                  <Trash2 size={11} /> Delete
+                                </button>
 
                                 {r.currentStatus === "Open" && (
                                   <>
@@ -1140,11 +1483,19 @@ export default function FacilityManagementApp() {
         {/* ========================================================================= */}
         {activeTab === "technician" && (
           <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            <div className="dark-card">
-              <h2 style={{ fontSize: "17px", fontWeight: 700, marginBottom: "4px" }}>Technician Service Console</h2>
-              <p style={{ fontSize: "12.5px", color: "var(--text-muted)" }}>
-                Active maintenance assignments requiring on-site diagnostics, material replacements, and sign-offs.
-              </p>
+            <div className="dark-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 style={{ fontSize: "17px", fontWeight: 700, marginBottom: "4px" }}>Technician Service Console</h2>
+                <p style={{ fontSize: "12.5px", color: "var(--text-muted)" }}>
+                  Active maintenance assignments requiring on-site diagnostics, material replacements, and sign-offs.
+                </p>
+              </div>
+              <button
+                onClick={() => setAddTechModalOpen(true)}
+                className="btn btn-primary"
+              >
+                <Plus size={15} /> Add Technician
+              </button>
             </div>
 
             {/* Technician Roster with Active Load */}
@@ -1170,9 +1521,29 @@ export default function FacilityManagementApp() {
                       </span>
                     </div>
 
-                    <div style={{ marginTop: "14px", display: "flex", justifyContent: "space-between", fontSize: "12px", borderTop: "1px solid var(--border-subtle)", paddingTop: "10px" }}>
-                      <span style={{ color: "var(--text-muted)" }}>Active Work Orders:</span>
-                      <span style={{ fontWeight: 700 }}>{activeCount} / 3 Max</span>
+                    <div style={{ marginTop: "14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", borderTop: "1px solid var(--border-subtle)", paddingTop: "10px" }}>
+                      <div>
+                        <span style={{ color: "var(--text-muted)" }}>Active Work Orders: </span>
+                        <span style={{ fontWeight: 700 }}>{activeCount} / 3 Max</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          onClick={() => openEditTechnicianModal(t)}
+                          className="btn btn-secondary"
+                          style={{ padding: "3px 8px", fontSize: "11px" }}
+                          title="Edit Technician"
+                        >
+                          <Pencil size={11} /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTechnician(t.id, t.user.fullName)}
+                          className="btn btn-danger"
+                          style={{ padding: "3px 8px", fontSize: "11px" }}
+                          title="Delete Technician"
+                        >
+                          <Trash2 size={11} /> Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1245,11 +1616,19 @@ export default function FacilityManagementApp() {
         {/* ========================================================================= */}
         {activeTab === "inventory" && (
           <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <div className="dark-card">
-              <h2 style={{ fontSize: "17px", fontWeight: 700, marginBottom: "4px" }}>Facility Spare Parts Inventory</h2>
-              <p style={{ fontSize: "12.5px", color: "var(--text-muted)" }}>
-                Stock records, replenishment thresholds, and automated deficit alerts.
-              </p>
+            <div className="dark-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 style={{ fontSize: "17px", fontWeight: 700, marginBottom: "4px" }}>Facility Spare Parts Inventory</h2>
+                <p style={{ fontSize: "12.5px", color: "var(--text-muted)" }}>
+                  Stock records, replenishment thresholds, and automated deficit alerts.
+                </p>
+              </div>
+              <button
+                onClick={() => setAddMaterialModalOpen(true)}
+                className="btn btn-primary"
+              >
+                <Plus size={15} /> Add Spare Part
+              </button>
             </div>
 
             <div className="dark-card" style={{ padding: "0" }}>
@@ -1263,6 +1642,7 @@ export default function FacilityManagementApp() {
                       <th>Reorder Threshold</th>
                       <th>Inventory Status</th>
                       <th>Stock Value</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1287,6 +1667,26 @@ export default function FacilityManagementApp() {
                           </td>
                           <td style={{ fontWeight: 600, color: "var(--pastel-sage)" }}>
                             ₹{(m.quantityInStock * m.unitCost).toFixed(2)}
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button
+                                onClick={() => openEditMaterialModal(m)}
+                                className="btn btn-secondary"
+                                style={{ padding: "3px 8px", fontSize: "11px" }}
+                                title="Edit Spare Part"
+                              >
+                                <Pencil size={11} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMaterial(m.id, m.materialName)}
+                                className="btn btn-danger"
+                                style={{ padding: "3px 8px", fontSize: "11px" }}
+                                title="Delete Spare Part"
+                              >
+                                <Trash2 size={11} /> Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1398,16 +1798,26 @@ export default function FacilityManagementApp() {
 
               {/* Feedback (if any) */}
               {selectedRequest.feedback && (
-                <div style={{ background: "var(--pastel-butter-bg)", border: "1px solid var(--pastel-butter-border)", padding: "12px", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span style={{ color: "var(--pastel-butter)", fontWeight: 800 }}>★ {selectedRequest.feedback.rating} / 5</span>
-                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Requester Feedback</span>
+                <div style={{ background: "var(--pastel-butter-bg)", border: "1px solid var(--pastel-butter-border)", padding: "12px", borderRadius: "var(--radius-md)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ color: "var(--pastel-butter)", fontWeight: 800 }}>★ {selectedRequest.feedback.rating} / 5</span>
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Requester Feedback</span>
+                    </div>
+                    {selectedRequest.feedback.comments && (
+                      <p style={{ fontSize: "12.5px", marginTop: "4px", fontStyle: "italic" }}>
+                        "{selectedRequest.feedback.comments}"
+                      </p>
+                    )}
                   </div>
-                  {selectedRequest.feedback.comments && (
-                    <p style={{ fontSize: "12.5px", marginTop: "4px", fontStyle: "italic" }}>
-                      "{selectedRequest.feedback.comments}"
-                    </p>
-                  )}
+                  <button
+                    onClick={() => handleDeleteFeedback(selectedRequest.id)}
+                    className="btn btn-danger"
+                    style={{ padding: "4px 8px", fontSize: "11px" }}
+                    title="Delete Feedback"
+                  >
+                    <Trash2 size={11} /> Delete
+                  </button>
                 </div>
               )}
 
@@ -1437,6 +1847,31 @@ export default function FacilityManagementApp() {
                       {h.remarks && <p style={{ color: "var(--text-secondary)", marginTop: "2px" }}>{h.remarks}</p>}
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Record Actions */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-subtle)", paddingTop: "14px", marginTop: "8px" }}>
+                <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Record Actions</span>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      const reqToEdit = selectedRequest;
+                      setSelectedRequest(null);
+                      openEditRequestModal(reqToEdit);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ fontSize: "12px" }}
+                  >
+                    <Pencil size={13} /> Edit Ticket
+                  </button>
+                  <button
+                    onClick={() => handleDeleteRequest(selectedRequest.id, selectedRequest.requestCode)}
+                    className="btn btn-danger"
+                    style={{ fontSize: "12px" }}
+                  >
+                    <Trash2 size={13} /> Delete Ticket
+                  </button>
                 </div>
               </div>
             </div>
@@ -1697,6 +2132,520 @@ export default function FacilityManagementApp() {
                 </button>
                 <button type="submit" disabled={actionLoading} className="btn btn-primary">
                   {actionLoading ? "Submitting..." : "Submit Rating"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT REQUEST */}
+      {/* ========================================================================= */}
+      {editRequestModalReq && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          className="animate-fade-in"
+        >
+          <div className="dark-card" style={{ width: "100%", maxWidth: "560px", position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Edit Maintenance Request</h3>
+                <p style={{ fontSize: "12px", color: "var(--pastel-peach)", fontWeight: 600 }}>{editRequestModalReq.requestCode}</p>
+              </div>
+              <button onClick={() => setEditRequestModalReq(null)} className="btn btn-secondary" style={{ padding: "4px 8px" }}>✕</button>
+            </div>
+
+            <form onSubmit={handleEditRequestSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Lifecycle Status *</label>
+                  <select
+                    value={editReqStatus}
+                    onChange={(e) => setEditReqStatus(e.target.value)}
+                    className="input-field"
+                    required
+                  >
+                    <option value="Open">Open</option>
+                    <option value="Assigned">Assigned</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Priority Level *</label>
+                  <select
+                    value={editReqPriorityId}
+                    onChange={(e) => setEditReqPriorityId(e.target.value)}
+                    className="input-field"
+                    required
+                  >
+                    {metadata?.priorities?.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.levelName} ({p.responseTimeHours}h SLA)</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Room Location *</label>
+                <select
+                  value={editReqRoomId}
+                  onChange={(e) => {
+                    setEditReqRoomId(e.target.value);
+                    setEditReqAssetId("");
+                  }}
+                  className="input-field"
+                  required
+                >
+                  {metadata?.rooms?.map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      {r.building?.buildingName} - Room {r.roomNumber} (Floor {r.floorLevel})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Asset / Equipment (Optional)</label>
+                <select
+                  value={editReqAssetId}
+                  onChange={(e) => setEditReqAssetId(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">No specific equipment (General Room)</option>
+                  {metadata?.rooms
+                    ?.find((r: any) => String(r.id) === String(editReqRoomId))
+                    ?.assets?.map((a: any) => (
+                      <option key={a.id} value={a.id}>{a.assetName} [S/N: {a.serialNumber}]</option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Requester *</label>
+                <select
+                  value={editReqUserId}
+                  onChange={(e) => setEditReqUserId(e.target.value)}
+                  className="input-field"
+                  required
+                >
+                  {metadata?.users?.map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.fullName} ({u.role} - {u.department})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Problem Description *</label>
+                <textarea
+                  rows={3}
+                  value={editReqDescription}
+                  onChange={(e) => setEditReqDescription(e.target.value)}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button type="button" onClick={() => setEditRequestModalReq(null)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD / REGISTER TECHNICIAN */}
+      {/* ========================================================================= */}
+      {addTechModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          className="animate-fade-in"
+        >
+          <div className="dark-card" style={{ width: "100%", maxWidth: "480px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Register New Technician</h3>
+              <button onClick={() => setAddTechModalOpen(false)} className="btn btn-secondary" style={{ padding: "4px 8px" }}>✕</button>
+            </div>
+
+            <form onSubmit={handleAddTechnicianSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Suresh Kumar"
+                  value={techFullName}
+                  onChange={(e) => setTechFullName(e.target.value)}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Email *</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. suresh.tech@campus.edu"
+                    value={techEmail}
+                    onChange={(e) => setTechEmail(e.target.value)}
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="+91 98765 43210"
+                    value={techPhone}
+                    onChange={(e) => setTechPhone(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Trade Specialization *</label>
+                  <select
+                    value={techSpec}
+                    onChange={(e) => setTechSpec(e.target.value)}
+                    className="input-field"
+                    required
+                  >
+                    <option value="Electrical">Electrical</option>
+                    <option value="HVAC & Air Conditioning">HVAC & Air Conditioning</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Carpentry & Furniture">Carpentry & Furniture</option>
+                    <option value="Civil & Masonry">Civil & Masonry</option>
+                    <option value="IT Equipment & Audio-Visual">IT Equipment & AV</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Availability Status</label>
+                  <select
+                    value={techStatus}
+                    onChange={(e) => setTechStatus(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Busy">Busy</option>
+                    <option value="On Leave">On Leave</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button type="button" onClick={() => setAddTechModalOpen(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Registering..." : "Add Technician"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT TECHNICIAN */}
+      {/* ========================================================================= */}
+      {editTechModalTech && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          className="animate-fade-in"
+        >
+          <div className="dark-card" style={{ width: "100%", maxWidth: "480px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Edit Technician</h3>
+                <p style={{ fontSize: "12px", color: "var(--pastel-peach)", fontWeight: 600 }}>{editTechModalTech.user?.fullName}</p>
+              </div>
+              <button onClick={() => setEditTechModalTech(null)} className="btn btn-secondary" style={{ padding: "4px 8px" }}>✕</button>
+            </div>
+
+            <form onSubmit={handleEditTechnicianSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Full Name *</label>
+                <input
+                  type="text"
+                  value={techFullName}
+                  onChange={(e) => setTechFullName(e.target.value)}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Email *</label>
+                  <input
+                    type="email"
+                    value={techEmail}
+                    onChange={(e) => setTechEmail(e.target.value)}
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Phone Number</label>
+                  <input
+                    type="text"
+                    value={techPhone}
+                    onChange={(e) => setTechPhone(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Trade Specialization *</label>
+                  <select
+                    value={techSpec}
+                    onChange={(e) => setTechSpec(e.target.value)}
+                    className="input-field"
+                    required
+                  >
+                    <option value="Electrical">Electrical</option>
+                    <option value="HVAC & Air Conditioning">HVAC & Air Conditioning</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Carpentry & Furniture">Carpentry & Furniture</option>
+                    <option value="Civil & Masonry">Civil & Masonry</option>
+                    <option value="IT Equipment & Audio-Visual">IT Equipment & AV</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Availability Status</label>
+                  <select
+                    value={techStatus}
+                    onChange={(e) => setTechStatus(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Busy">Busy</option>
+                    <option value="On Leave">On Leave</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button type="button" onClick={() => setEditTechModalTech(null)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD SPARE PART */}
+      {/* ========================================================================= */}
+      {addMaterialModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          className="animate-fade-in"
+        >
+          <div className="dark-card" style={{ width: "100%", maxWidth: "460px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Add Spare Part to Inventory</h3>
+              <button onClick={() => setAddMaterialModalOpen(false)} className="btn btn-secondary" style={{ padding: "4px 8px" }}>✕</button>
+            </div>
+
+            <form onSubmit={handleAddMaterialSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Material / Item Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cat6 Ethernet Cable (10m)"
+                  value={matName}
+                  onChange={(e) => setMatName(e.target.value)}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Unit Cost (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={matUnitCost}
+                    onChange={(e) => setMatUnitCost(e.target.value)}
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Initial Stock Units *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={matStock}
+                    onChange={(e) => setMatStock(e.target.value)}
+                    className="input-field"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Reorder Threshold Level *</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={matReorder}
+                  onChange={(e) => setMatReorder(e.target.value)}
+                  className="input-field"
+                  required
+                />
+                <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+                  Alerts trigger when stock falls below this quantity.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button type="button" onClick={() => setAddMaterialModalOpen(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Adding..." : "Add to Inventory"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT SPARE PART */}
+      {/* ========================================================================= */}
+      {editMaterialModalMat && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          className="animate-fade-in"
+        >
+          <div className="dark-card" style={{ width: "100%", maxWidth: "460px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Edit Inventory Spare Part</h3>
+                <p style={{ fontSize: "12px", color: "var(--pastel-peach)", fontWeight: 600 }}>{editMaterialModalMat.materialName}</p>
+              </div>
+              <button onClick={() => setEditMaterialModalMat(null)} className="btn btn-secondary" style={{ padding: "4px 8px" }}>✕</button>
+            </div>
+
+            <form onSubmit={handleEditMaterialSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Material / Item Name *</label>
+                <input
+                  type="text"
+                  value={matName}
+                  onChange={(e) => setMatName(e.target.value)}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Unit Cost (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={matUnitCost}
+                    onChange={(e) => setMatUnitCost(e.target.value)}
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Current Stock Units *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={matStock}
+                    onChange={(e) => setMatStock(e.target.value)}
+                    className="input-field"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Reorder Threshold Level *</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={matReorder}
+                  onChange={(e) => setMatReorder(e.target.value)}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button type="button" onClick={() => setEditMaterialModalMat(null)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={actionLoading} className="btn btn-primary">
+                  {actionLoading ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>
